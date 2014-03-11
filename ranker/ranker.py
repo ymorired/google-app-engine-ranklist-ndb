@@ -174,7 +174,7 @@ class Ranker(object):
         myrank = Ranker(rootkey)
         return myrank
 
-    def __FindNodeIDs(self, score):
+    def _find_node_ids(self, score):
         """Finds the nodes along the path from the root to a certain score.
 
         Args:
@@ -210,7 +210,7 @@ class Ranker(object):
         for index in xrange(0, len(cur_range), 2):
             while cur_range[index + 1] - cur_range[index] > 1:
                 # Subdivide cur_range[index]..cur_range[index + 1]
-                which_child = self.__WhichChild(cur_range[index],
+                which_child = self._which_child(cur_range[index],
                                                 cur_range[index + 1],
                                                 score[index // 2],
                                                 self.branching_factor)
@@ -219,10 +219,10 @@ class Ranker(object):
                 cur_range[index + 1] = which_child[1][1]
                 assert 0 <= child < self.branching_factor
                 nodes.append((node, child))
-                node = self.__ChildNodeId(node, child)
+                node = self._child_node_id(node, child)
         return nodes
 
-    def __WhichChild(self, low, high, want, branching_factor):
+    def _which_child(self, low, high, want, branching_factor):
         """Determines which child of the range [low, high) 'want' belongs to.
 
         Args:
@@ -252,10 +252,10 @@ class Ranker(object):
         child = -1 + (((want - low + 1) * branching_factor + high - low - 1) // (high - low))
         assert (child * (high - low) // branching_factor <= want - low < (child + 1) * (high - low) // branching_factor)
 
-        child_score_range = self.__ChildScoreRange([low, high], child, branching_factor)
+        child_score_range = self._child_score_range([low, high], child, branching_factor)
         return child, child_score_range
 
-    def __ChildScoreRange(self, score_range, child, branching_factor):
+    def _child_score_range(self, score_range, child, branching_factor):
         """Calculates the score_range for a node's child.
 
         Args:
@@ -277,7 +277,7 @@ class Ranker(object):
                 return child_score_range
         raise AssertionError("Node with score range %s has no children." % score_range)
 
-    def __ChildNodeId(self, node_id, child):
+    def _child_node_id(self, node_id, child):
         """Calculates the node id for a known node id's child.
 
         Args:
@@ -289,7 +289,7 @@ class Ranker(object):
         """
         return node_id * self.branching_factor + 1 + child
 
-    def __GetMultipleNodes(self, node_ids):
+    def _get_multi_nodes(self, node_ids):
         """Gets multiple nodes from the datastore.
 
         Args:
@@ -302,21 +302,21 @@ class Ranker(object):
         if len(node_ids) == 0:
             return []
         node_ids = set(node_ids)
-        keys = [self.__KeyFromNodeId(node_id) for node_id in node_ids]
+        keys = [self._key_from_node_id(node_id) for node_id in node_ids]
         nodes = ndb.get_multi(keys)
         return dict((node_id, node) for (node_id, node) in zip(node_ids, nodes) if node)
 
     # Although, this method is currently not needed, we'll keep this
     # since we might need it and some point and it's an interesting
     # relationship
-    def __ParentNode(self, node_id):
+    def _parent_node_id(self, node_id):
         """Returns the node id of the parameter node id's parent.  Returns None if
         the parameter is 0."""
         if node_id == 0:
             return None
         return (node_id - 1) // self.branching_factor
 
-    def __KeyFromNodeId(self, node_id):
+    def _key_from_node_id(self, node_id):
         """Creates a (named) key for the node with a given id.
 
         The key will have the ranker as a parent element to guarantee
@@ -333,7 +333,7 @@ class Ranker(object):
         new_key = ndb.Key(model.RankerNode, name, parent=self.rootkey)
         return new_key
 
-    def __KeyForScore(self, name):
+    def _key_for_score(self, name):
         """Returns a (named) key for a ranker_score entity.
 
         Args:
@@ -345,8 +345,7 @@ class Ranker(object):
         new_key = ndb.Key(model.RankerScore, name, parent=self.rootkey)
         return new_key
 
-    def __Increment(self, nodes_with_children, score_entities,
-                    score_entities_to_delete):
+    def _increment(self, nodes_with_children, score_entities,score_entities_to_delete):
         """Changes child counts for given nodes.
 
         This method will create nodes as needed.
@@ -405,11 +404,11 @@ class Ranker(object):
         Args:
           scores: A dict mapping entity names (strings) to scores (integer lists)
         """
-        score_deltas, score_ents, score_ents_del = self.__ComputeScoreDeltas(scores)
-        node_ids_to_deltas = self.__ComputeNodeModifications(score_deltas)
-        self.__Increment(node_ids_to_deltas, score_ents, score_ents_del)
+        score_deltas, score_ents, score_ents_del = self._compute_score_deltas(scores)
+        node_ids_to_deltas = self._compute_node_modifications(score_deltas)
+        self._increment(node_ids_to_deltas, score_ents, score_ents_del)
 
-    def __ComputeScoreDeltas(self, scores):
+    def _compute_score_deltas(self, scores):
         """Compute which scores have to be incremented and decremented.
 
         Args:
@@ -430,7 +429,7 @@ class Ranker(object):
           have to be deleted in the same transaction as modifying the ranker
           nodes.
         """
-        score_keys = [self.__KeyForScore(score) for score in scores]
+        score_keys = [self._key_for_score(score) for score in scores]
         old_scores = {}
         for old_score in ndb.get_multi(score_keys):
             if old_score:
@@ -467,7 +466,7 @@ class Ranker(object):
 
         return (score_deltas, score_ents, score_ents_del)
 
-    def __ComputeNodeModifications(self, score_deltas):
+    def _compute_node_modifications(self, score_deltas):
         """Computes modifications to ranker nodes.
 
         Given score deltas, computes which nodes need to be modified and by
@@ -484,13 +483,13 @@ class Ranker(object):
         """
         nodes_to_deltas = {}
         for score, delta in score_deltas.iteritems():
-            nodes_to_update = self.__FindNodeIDs(score)
+            nodes_to_update = self._find_node_ids(score)
             for (node_id, child) in nodes_to_update:
-                node = (self.__KeyFromNodeId(node_id), child)
+                node = (self._key_from_node_id(node_id), child)
                 nodes_to_deltas[node] = nodes_to_deltas.get(node, 0) + delta
         return nodes_to_deltas
 
-    def __FindRank(self, node_ids_with_children, nodes):
+    def _find_rank(self, node_ids_with_children, nodes):
         """Utility function.  Finds the rank of a score.
 
         Args:
@@ -540,18 +539,18 @@ class Ranker(object):
         for score in scores:
             assert len(score) * 2 == len(self.score_range)
         # Find the nodes we'll need to query to find information about these scores:
-        node_ids_with_children_list = [self.__FindNodeIDs(score)
+        node_ids_with_children_list = [self._find_node_ids(score)
                                        for score in scores]
         node_ids = []
         for node_ids_with_children in node_ids_with_children_list:
             node_ids += [node_id for (node_id, _) in node_ids_with_children]
         # Query the needed nodes:
-        nodes_dict = self.__GetMultipleNodes(node_ids)
+        nodes_dict = self._get_multi_nodes(node_ids)
         # Call __FindRank, which does the math, for each score:
-        return [self.__FindRank(node_ids_with_children, nodes_dict) for
+        return [self._find_rank(node_ids_with_children, nodes_dict) for
                 node_ids_with_children in node_ids_with_children_list]
 
-    def __FindScore(self, node_id, rank, score_range, approximate):
+    def _find_score(self, node_id, rank, score_range, approximate):
         """To be run in a transaction.  Finds the score ranked 'rank' in the subtree
         defined by node 'nodekey.'
 
@@ -575,21 +574,21 @@ class Ranker(object):
         if approximate and rank == 0:
             return ([score - 1 for score in score_range[1::2]], 0)
         # Find the current node.
-        node = self.__KeyFromNodeId(node_id).get()
+        node = self._key_from_node_id(node_id).get()
         child_counts = node.child_counts
         initial_rank = rank
         for i in xrange(self.branching_factor - 1, -1, -1):
             # If this child has enough scores that rank 'rank' is in
             # there, recurse.
             if rank - child_counts[i] < 0:
-                child_score_range = self.__ChildScoreRange(score_range, i,
+                child_score_range = self._child_score_range(score_range, i,
                                                            self.branching_factor)
-                if self.__IsSingletonRange(child_score_range):
+                if self._is_singleton_range(child_score_range):
                     # Base case; child_score_range refers to a single score. We don't
                     # store leaf nodes so we can return right here.
                     return (child_score_range[0::2], initial_rank - rank)
                 # Not a base case.  Keep descending into children.
-                ans = self.__FindScore(self.__ChildNodeId(node_id, i), rank,
+                ans = self._find_score(self._child_node_id(node_id, i), rank,
                                        child_score_range,
                                        approximate)
                 # Note the 'initial_rank - rank': we've asked the child for a score of
@@ -600,7 +599,7 @@ class Ranker(object):
                 rank -= child_counts[i]
         return None
 
-    def __IsSingletonRange(self, scorerange):
+    def _is_singleton_range(self, scorerange):
         """Returns whether a range contains exactly one score."""
         return [score + 1 for score in scorerange[0::2]] == scorerange[1::2]
 
@@ -637,7 +636,7 @@ class Ranker(object):
           e.g. if there are two scores tied at 5th and rank == 6, returns
           (score, 5).
         """
-        return self.__FindScore(0, rank, self.score_range, False)
+        return self._find_score(0, rank, self.score_range, False)
 
     @transactional
     def FindScoreApproximate(self, rank):
@@ -663,7 +662,7 @@ class Ranker(object):
             in the tie.
             e.g. if two scores are tied at 5th and rank == 6, returns (score, 5).
         """
-        return self.__FindScore(0, rank, self.score_range, True)
+        return self._find_score(0, rank, self.score_range, True)
 
     def TotalRankedScores(self):
         """Returns the total number of ranked scores.
@@ -671,7 +670,7 @@ class Ranker(object):
         Returns:
           The total number of ranked scores.
         """
-        node_key = self.__KeyFromNodeId(0)
+        node_key = self._key_from_node_id(0)
         root = node_key.get()
         if root:
             return sum(root.child_counts)
