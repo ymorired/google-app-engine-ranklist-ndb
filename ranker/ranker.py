@@ -17,7 +17,10 @@
 from google.appengine.api import datastore
 from google.appengine.api import datastore_types
 
+from google.appengine.ext import ndb
+
 from common import transactional
+import model
 
 
 class Ranker(object):
@@ -136,12 +139,12 @@ class Ranker(object):
           rootkey: The datastore key of the ranker.
         """
         # Get the root from the datastore:
-        assert rootkey.kind() == "ranker"
-        root = datastore.Get(rootkey)
+        assert rootkey.kind() == "Ranker"
+        root = rootkey.get()
         # Initialize some class variables:
         self.rootkey = rootkey
-        self.score_range = root["score_range"]
-        self.branching_factor = root["branching_factor"]
+        self.score_range = root.score_range
+        self.branching_factor = root.branching_factor
         # Sanity checking:
         assert len(self.score_range) > 1
         assert len(self.score_range) % 2 == 0
@@ -166,11 +169,12 @@ class Ranker(object):
           A new Ranker.
         """
         # Put the root in the datastore:
-        root = datastore.Entity("ranker")
-        root["score_range"] = score_range
-        root["branching_factor"] = branching_factor
-        datastore.Put(root)
-        myrank = Ranker(root.key())
+        root = model.Ranker(
+            score_range=score_range,
+            branching_factor=branching_factor,
+        )
+        rootkey = root.put()
+        myrank = Ranker(rootkey)
         return myrank
 
     def __FindNodeIDs(self, score):
@@ -302,7 +306,7 @@ class Ranker(object):
             return []
         node_ids = set(node_ids)
         keys = [self.__KeyFromNodeId(node_id) for node_id in node_ids]
-        nodes = datastore.Get(keys)
+        nodes = ndb.get_multi(keys)
         return dict((node_id, node) for (node_id, node) in zip(node_ids, nodes) if node)
 
     # Although, this method is currently not needed, we'll keep this
@@ -329,7 +333,8 @@ class Ranker(object):
           A (named) key for the node with the id 'node_id'.
         """
         name = "node_%x" % node_id
-        return datastore_types.Key.from_path("ranker_node", name, parent=self.rootkey)
+        new_key = ndb.Key(model.RankerNode, name, parent=self.rootkey)
+        return new_key
 
     def __KeyForScore(self, name):
         """Returns a (named) key for a ranker_score entity.
@@ -340,7 +345,8 @@ class Ranker(object):
         Returns:
           A (named) key for the entity storing the score of 'name'.
         """
-        return datastore_types.Key.from_path("ranker_score", name, parent=self.rootkey)
+        new_key = ndb.Key(model.RankerScore, name, parent=self.rootkey)
+        return new_key
 
     def __Increment(self, nodes_with_children, score_entities,
                     score_entities_to_delete):
@@ -358,22 +364,25 @@ class Ranker(object):
         keys = list(set(key for ((key, _), delta) in nodes_with_children.iteritems() if delta != 0))
         if not keys:
             return  # Nothing to do
-        nodes = datastore.Get(keys)
+        nodes = ndb.get_multi(keys)
 
         node_dict = {}
         for (key, node) in zip(keys, nodes):
             if not node:
-                node = datastore.Entity("ranker_node", parent=self.rootkey, name=key.name())
-                node["child_counts"] = [0] * self.branching_factor
+                node = model.RankerNode(
+                    key=key,
+                    child_counts=[0] * self.branching_factor,
+                )
             node_dict[key] = node
         for ((key, child), amount) in nodes_with_children.iteritems():
             if amount != 0:
                 node = node_dict[key]
-                node["child_counts"][child] += amount
-                assert node["child_counts"][child] >= 0
-        datastore.Put(node_dict.values() + score_entities)
+                node.child_counts[child] += amount
+                assert node.child_counts[child] >= 0
+        ndb.put_multi(node_dict.values() + score_entities)
         if score_entities_to_delete:
-            datastore.Delete(score_entities_to_delete)
+            keys = [obj.key for obj in score_entities_to_delete]
+            ndb.delete_multi(keys)
 
     def SetScore(self, name, score):
         """Sets a single score.
@@ -426,9 +435,9 @@ class Ranker(object):
         """
         score_keys = [self.__KeyForScore(score) for score in scores]
         old_scores = {}
-        for old_score in datastore.Get(score_keys):
+        for old_score in ndb.get_multi(score_keys):
             if old_score:
-                old_scores[old_score.key().name()] = old_score
+                old_scores[old_score.key.string_id()] = old_score
         score_deltas = {}
         # Score entities to update
         score_ents = []
@@ -436,19 +445,23 @@ class Ranker(object):
         for score_name, score_value in scores.iteritems():
             if score_name in old_scores:
                 score_ent = old_scores[score_name]
-                if score_ent["value"] == score_value:
-                    continue  # No change in score => nothing to do
-                old_score_key = tuple(score_ent["value"])
+                if score_ent.value == score_value:
+                    continue
+                old_score_key = tuple(score_ent.value)
                 score_deltas.setdefault(old_score_key, 0)
                 score_deltas[old_score_key] -= 1
             else:
-                score_ent = datastore.Entity("ranker_score", parent=self.rootkey,
-                                             name=score_name)
+                score_ent = model.RankerScore(
+                    key=ndb.Key(model.RankerScore, score_name, parent=self.rootkey)
+                )
+
+            # NOTE: is there case that score_value does not exit..???
             if score_value:
                 score_key = tuple(score_value)
                 score_deltas.setdefault(score_key, 0)
                 score_deltas[score_key] += 1
-                score_ent["value"] = score_value
+                score_ent.value = score_value
+                # score_ent["value"] = score_value
                 score_ents.append(score_ent)
             else:
                 # Do we have to delete an old score entity?
@@ -496,7 +509,7 @@ class Ranker(object):
             if node_id in nodes:
                 node = nodes[node_id]
                 for i in xrange(child + 1, self.branching_factor):
-                    tot += node["child_counts"][i]
+                    tot += node.child_counts[i]
             else:
                 # If the node isn't in the dict, the node simply doesn't exist.  We
                 # are probably finding the rank for a score that doesn't appear in the
@@ -565,8 +578,8 @@ class Ranker(object):
         if approximate and rank == 0:
             return ([score - 1 for score in score_range[1::2]], 0)
         # Find the current node.
-        node = datastore.Get(self.__KeyFromNodeId(node_id))
-        child_counts = node["child_counts"]
+        node = self.__KeyFromNodeId(node_id).get()
+        child_counts = node.child_counts
         initial_rank = rank
         for i in xrange(self.branching_factor - 1, -1, -1):
             # If this child has enough scores that rank 'rank' is in
@@ -642,9 +655,10 @@ class Ranker(object):
         Returns:
           The total number of ranked scores.
         """
-        root = datastore.Get([self.__KeyFromNodeId(0)])[0]
+        node_key = self.__KeyFromNodeId(0)
+        root = node_key.get()
         if root:
-            return sum(root["child_counts"])
+            return sum(root.child_counts)
         else:
             # Ranker doesn't have any ranked scores, yet
             return 0

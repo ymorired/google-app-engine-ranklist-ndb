@@ -22,20 +22,27 @@ from google.appengine.api import datastore_types
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
+
+from google.appengine.ext import ndb
+import ranker.model as model
+
 from ranker import ranker
 
 APP_KEY = 'default'
 
 
 def GetRanker():
-    key = datastore_types.Key.from_path("app", APP_KEY)
-    try:
-        return ranker.Ranker(datastore.Get(key)["ranker"])
-    except datastore_errors.EntityNotFoundError:
+    key = ndb.Key(model.App, APP_KEY)
+    app = key.get()
+    if app:
+        return ranker.Ranker(app.ranker)
+    else:
         r = ranker.Ranker.Create([0, 10000], 100)
-        app = datastore.Entity("app", name=APP_KEY)
-        app["ranker"] = r.rootkey
-        datastore.Put(app)
+        app = model.App(
+            key=key,
+            ranker=r.rootkey
+        )
+        app.put()
         return r
 
 
