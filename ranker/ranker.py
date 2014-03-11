@@ -14,9 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from google.appengine.api import datastore
-from google.appengine.api import datastore_types
-
 from google.appengine.ext import ndb
 
 from common import transactional
@@ -442,9 +439,9 @@ class Ranker(object):
         # Score entities to update
         score_ents = []
         score_ents_del = []
-        for score_name, score_value in scores.iteritems():
-            if score_name in old_scores:
-                score_ent = old_scores[score_name]
+        for player_id, score_value in scores.iteritems():
+            if player_id in old_scores:
+                score_ent = old_scores[player_id]
                 if score_ent.value == score_value:
                     continue
                 old_score_key = tuple(score_ent.value)
@@ -452,7 +449,7 @@ class Ranker(object):
                 score_deltas[old_score_key] -= 1
             else:
                 score_ent = model.RankerScore(
-                    key=ndb.Key(model.RankerScore, score_name, parent=self.rootkey)
+                    key=ndb.Key(model.RankerScore, player_id, parent=self.rootkey)
                 )
 
             # NOTE: is there case that score_value does not exit..???
@@ -465,8 +462,8 @@ class Ranker(object):
                 score_ents.append(score_ent)
             else:
                 # Do we have to delete an old score entity?
-                if score_name in old_scores:
-                    score_ents_del.append(old_scores[score_name])
+                if player_id in old_scores:
+                    score_ents_del.append(old_scores[player_id])
 
         return (score_deltas, score_ents, score_ents_del)
 
@@ -606,6 +603,25 @@ class Ranker(object):
     def __IsSingletonRange(self, scorerange):
         """Returns whether a range contains exactly one score."""
         return [score + 1 for score in scorerange[0::2]] == scorerange[1::2]
+
+    def GetScore(self, name):
+        return self.GetScores([name])[0]
+
+    def GetScores(self, names):
+
+        score_keys = []
+        for player_id in names:
+            score_keys.append(ndb.Key(model.RankerScore, player_id, parent=self.rootkey))
+
+        scores = ndb.get_multi(score_keys)
+        score_values = []
+        for (player_id, score) in zip(names, scores):
+            if score is not None:
+                score_values.append(score.value)
+            else:
+                score_values.append(None)
+
+        return score_values
 
     @transactional
     def FindScore(self, rank):
