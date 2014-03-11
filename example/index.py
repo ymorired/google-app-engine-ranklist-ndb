@@ -18,9 +18,6 @@ sys.path.insert(0, '..')
 
 import os
 
-from google.appengine.api import datastore
-from google.appengine.api import datastore_errors
-from google.appengine.api import datastore_types
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
@@ -33,13 +30,13 @@ from ranker import ranker
 APP_KEY = 'default'
 
 
-def GetRanker():
+def get_ranker():
     key = ndb.Key(model.App, APP_KEY)
     app = key.get()
     if app:
         return ranker.Ranker(app.ranker)
     else:
-        r = ranker.Ranker.Create([0, 10000], 100)
+        r = ranker.Ranker.create([0, 10000], 100)
         app = model.App(
             key=key,
             ranker=r.rootkey
@@ -74,16 +71,16 @@ class SetScoreHandler(webapp.RequestHandler):
                               "a digit.  In addition, your score must be an integer "
                               "between 0 and 9999, inclusive.")
             return
-        r = GetRanker()
-        r.SetScore(name, [score])
+        r = get_ranker()
+        r.set_score(name, [score])
         self.redirect("/")
 
 
 class QueryRankPage(webapp.RequestHandler):
     def get(self):
-        r = GetRanker()
+        r = get_ranker()
         rank = int(self.request.get("rank"))
-        if rank >= r.TotalRankedScores():
+        if rank >= r.total_ranked_player_num():
             ReturnError(self, "There aren't %d ranked people!" % (rank + 1))
         else:
             (score, rank_at_tie) = r.FindScore(rank)
@@ -98,7 +95,7 @@ class QueryRankPage(webapp.RequestHandler):
 
 class QueryScorePage(webapp.RequestHandler):
     def get(self):
-        r = GetRanker()
+        r = get_ranker()
         try:
             score = int(self.request.get("score"))
             assert 0 <= score <= 9999

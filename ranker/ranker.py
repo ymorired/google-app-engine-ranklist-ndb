@@ -150,7 +150,7 @@ class Ranker(object):
         assert self.branching_factor > 1
 
     @classmethod
-    def Create(cls, score_range, branching_factor):
+    def create(cls, score_range, branching_factor):
         """Constructs a new Ranker and returns it.
 
         Args:
@@ -380,7 +380,7 @@ class Ranker(object):
             keys = [obj.key for obj in score_entities_to_delete]
             ndb.delete_multi(keys)
 
-    def SetScore(self, name, score):
+    def set_score(self, name, score):
         """Sets a single score.
 
         This is equivalent to calling 'SetScores({name: score})'
@@ -389,10 +389,10 @@ class Ranker(object):
           name: the name of the score as a string
           score: the score to set name to
         """
-        return self.SetScores({name: score})
+        return self.set_scores({name: score})
 
     @transactional
-    def SetScores(self, scores):
+    def set_scores(self, scores):
         """Changes multiple scores atomically.
 
         Sets the scores of the named entities in scores to new values. For
@@ -603,10 +603,10 @@ class Ranker(object):
         """Returns whether a range contains exactly one score."""
         return [score + 1 for score in scorerange[0::2]] == scorerange[1::2]
 
-    def GetScore(self, name):
-        return self.GetScores([name])[0]
+    def get_score(self, name):
+        return self.get_scores([name])[0]
 
-    def GetScores(self, names):
+    def get_scores(self, names):
 
         score_keys = []
         for player_id in names:
@@ -622,6 +622,7 @@ class Ranker(object):
 
         return score_values
 
+    # TODO: transactional needed??
     @transactional
     def FindScore(self, rank):
         """Finds the score ranked at 'rank'.
@@ -638,6 +639,7 @@ class Ranker(object):
         """
         return self._find_score(0, rank, self.score_range, False)
 
+    # TODO: transactional needed??
     @transactional
     def FindScoreApproximate(self, rank):
         """Finds a score that >= the score ranked at 'rank'.
@@ -664,8 +666,9 @@ class Ranker(object):
         """
         return self._find_score(0, rank, self.score_range, True)
 
-    def TotalRankedScores(self):
-        """Returns the total number of ranked scores.
+    def total_ranked_player_num(self):
+        """ OLDNAME: TotalRankedScores
+        Returns the total number of ranked scores.
 
         Returns:
           The total number of ranked scores.
