@@ -248,11 +248,11 @@ class Ranker(object):
         #   want - low + 1 == (x+1)*(high-low)/branching_factor
         #   x = -1 + math.ceil((want-low+1) * branching_factor / (high - low))
         # We get ceil by adding high - low - 1 to the numerator.
-        x = -1 + (((want - low + 1) * branching_factor + high - low - 1) //
-                  (high - low))
-        assert (x * (high - low) // branching_factor <=
-                want - low < (x + 1) * (high - low) // branching_factor)
-        return (x, self.__ChildScoreRange([low, high], x, branching_factor))
+        child = -1 + (((want - low + 1) * branching_factor + high - low - 1) // (high - low))
+        assert (child * (high - low) // branching_factor <= want - low < (child + 1) * (high - low) // branching_factor)
+
+        child_score_range = self.__ChildScoreRange([low, high], child, branching_factor)
+        return child, child_score_range
 
     def __ChildScoreRange(self, score_range, child, branching_factor):
         """Calculates the score_range for a node's child.
@@ -267,15 +267,14 @@ class Ranker(object):
           A score range [min0', max0', min1', max1', ...] for that child.
         """
         for i in xrange(1, len(score_range), 2):
-            if score_range[i] > score_range[i - 1] + 1:
+            low, high = score_range[i - 1], score_range[i]
+            if high > low + 1:
                 child_score_range = list(score_range)
-                low, high = score_range[i - 1], score_range[i]
                 child_score_range[i - 1], child_score_range[i] = (
                     low + child * (high - low) // branching_factor,
                     low + (child + 1) * (high - low) // branching_factor)
                 return child_score_range
-        raise AssertionError("Node with score range %s has no children." %
-                             score_range)
+        raise AssertionError("Node with score range %s has no children." % score_range)
 
     def __ChildNodeId(self, node_id, child):
         """Calculates the node id for a known node id's child.
@@ -304,8 +303,7 @@ class Ranker(object):
         node_ids = set(node_ids)
         keys = [self.__KeyFromNodeId(node_id) for node_id in node_ids]
         nodes = datastore.Get(keys)
-        return dict((node_id, node) for (node_id, node) in zip(node_ids, nodes)
-                    if node)
+        return dict((node_id, node) for (node_id, node) in zip(node_ids, nodes) if node)
 
     # Although, this method is currently not needed, we'll keep this
     # since we might need it and some point and it's an interesting
@@ -331,8 +329,7 @@ class Ranker(object):
           A (named) key for the node with the id 'node_id'.
         """
         name = "node_%x" % node_id
-        return datastore_types.Key.from_path("ranker_node", name,
-                                             parent=self.rootkey)
+        return datastore_types.Key.from_path("ranker_node", name, parent=self.rootkey)
 
     def __KeyForScore(self, name):
         """Returns a (named) key for a ranker_score entity.
@@ -343,8 +340,7 @@ class Ranker(object):
         Returns:
           A (named) key for the entity storing the score of 'name'.
         """
-        return datastore_types.Key.from_path("ranker_score", name,
-                                             parent=self.rootkey)
+        return datastore_types.Key.from_path("ranker_score", name, parent=self.rootkey)
 
     def __Increment(self, nodes_with_children, score_entities,
                     score_entities_to_delete):
@@ -359,8 +355,7 @@ class Ranker(object):
         Returns:
           None
         """
-        keys = list(set(key for ((key, _), delta) in nodes_with_children.iteritems()
-                        if delta != 0))
+        keys = list(set(key for ((key, _), delta) in nodes_with_children.iteritems() if delta != 0))
         if not keys:
             return  # Nothing to do
         nodes = datastore.Get(keys)
@@ -368,8 +363,7 @@ class Ranker(object):
         node_dict = {}
         for (key, node) in zip(keys, nodes):
             if not node:
-                node = datastore.Entity("ranker_node", parent=self.rootkey,
-                                        name=key.name())
+                node = datastore.Entity("ranker_node", parent=self.rootkey, name=key.name())
                 node["child_counts"] = [0] * self.branching_factor
             node_dict[key] = node
         for ((key, child), amount) in nodes_with_children.iteritems():
@@ -480,7 +474,8 @@ class Ranker(object):
         """
         nodes_to_deltas = {}
         for score, delta in score_deltas.iteritems():
-            for (node_id, child) in self.__FindNodeIDs(score):
+            nodes_to_update = self.__FindNodeIDs(score)
+            for (node_id, child) in nodes_to_update:
                 node = (self.__KeyFromNodeId(node_id), child)
                 nodes_to_deltas[node] = nodes_to_deltas.get(node, 0) + delta
         return nodes_to_deltas
