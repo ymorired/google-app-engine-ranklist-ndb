@@ -24,10 +24,12 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 
 from google.appengine.ext import ndb
 import ranker.model as model
+import ranker.ranker as ranker
 
-from ranker import ranker
 
 APP_KEY = 'default'
+MIN_SCORE = 0
+MAX_SCORE = 9999
 
 
 def get_ranker():
