@@ -16,7 +16,6 @@
 
 from google.appengine.ext import ndb
 
-from common import transactional
 import model
 
 
@@ -391,7 +390,7 @@ class Ranker(object):
         """
         return self.set_scores({name: score})
 
-    @transactional
+    @ndb.transactional
     def set_scores(self, scores):
         """Changes multiple scores atomically.
 
@@ -624,8 +623,6 @@ class Ranker(object):
 
         return score_values
 
-    # TODO: transactional needed??
-    @transactional
     def find_score(self, rank):
         """Finds the score ranked at 'rank'.
 
@@ -641,8 +638,6 @@ class Ranker(object):
         """
         return self._find_score(0, rank, self.score_range, False)
 
-    # TODO: transactional needed??
-    @transactional
     def FindScoreApproximate(self, rank):
         """Finds a score that >= the score ranked at 'rank'.
 
