@@ -513,7 +513,7 @@ class Ranker(object):
                 pass
         return tot
 
-    def FindRank(self, score):
+    def find_rank(self, score):
         """Finds the 0-based rank of a particular score; more precisely, returns the
         number of strictly higher scores stored.
 
@@ -524,9 +524,9 @@ class Ranker(object):
           The number of tracked scores that are higher.  Does not check whether
           anyone actually has the requested score.
         """
-        return self.FindRanks([score])[0]
+        return self.find_ranks([score])[0]
 
-    def FindRanks(self, scores):
+    def find_ranks(self, scores):
         """Finds the 0-based ranks of a number of particular scores.
         Like FindRank, but more efficient for multiple scores.
 
@@ -608,9 +608,11 @@ class Ranker(object):
 
     def get_scores(self, names):
 
-        score_keys = []
-        for player_id in names:
-            score_keys.append(ndb.Key(model.RankerScore, player_id, parent=self.rootkey))
+        score_keys = [
+            ndb.Key(model.RankerScore, player_id, parent=self.rootkey)
+            for player_id
+            in names
+        ]
 
         scores = ndb.get_multi(score_keys)
         score_values = []
@@ -624,7 +626,7 @@ class Ranker(object):
 
     # TODO: transactional needed??
     @transactional
-    def FindScore(self, rank):
+    def find_score(self, rank):
         """Finds the score ranked at 'rank'.
 
         Args:

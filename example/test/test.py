@@ -58,21 +58,23 @@ class BasicTest(unittest.TestCase):
         """
         ranking = create_filled_ranking()
 
-        self.assertEqual(ranking.FindRank([150]), 0)
-        self.assertEqual(ranking.FindRank([140]), 1)
-        self.assertEqual(ranking.FindRank([100]), 4)
+        self.assertEqual(ranking.find_rank([150]), 0)
+        self.assertEqual(ranking.find_rank([140]), 1)
+        self.assertEqual(ranking.find_rank([100]), 4)
 
         self.assertEqual(
-            ranking.FindRanks([[130], [100]]),
-            [2, 4]
+            # rank 5 does not exist
+            ranking.find_ranks([[130], [100], [90]]),
+            [2, 4, 5]
         )
 
     def test_find_score(self):
         ranking = create_filled_ranking()
 
-        self.assertEqual(ranking.FindScore(0), ([150], 0))
-        self.assertEqual(ranking.FindScore(2), ([130], 2))
-        self.assertEqual(ranking.FindScore(3), ([130], 2))
+        self.assertEqual(ranking.find_score(0), ([150], 0))
+        self.assertEqual(ranking.find_score(2), ([130], 2))
+        self.assertEqual(ranking.find_score(3), ([130], 2))
+        self.assertEqual(ranking.find_score(5), None)
 
     def test_total_num(self):
         ranking = create_filled_ranking()
