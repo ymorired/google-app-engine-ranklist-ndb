@@ -22,8 +22,6 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 
-from google.appengine.ext import ndb
-import ranker.model as model
 import ranker.ranker as ranker
 
 
@@ -33,18 +31,7 @@ MAX_SCORE = 9999
 
 
 def get_ranker():
-    key = ndb.Key(model.App, APP_KEY)
-    app = key.get()
-    if app:
-        return ranker.Ranker(app.ranker)
-
-    r = ranker.Ranker.create([MIN_SCORE, MAX_SCORE + 1], 100)
-    app = model.App(
-        key=key,
-        ranker=r.rootkey
-    )
-    app.put()
-    return r
+    return ranker.Ranker.get_or_create(APP_KEY, [MIN_SCORE, MAX_SCORE + 1], 100)
 
 
 def show_error_page(self, error):

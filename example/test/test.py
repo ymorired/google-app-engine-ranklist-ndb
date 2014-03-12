@@ -4,16 +4,10 @@ import json
 from pprint import pprint
 
 from ranker import ranker
-import ranker.model as model
-
-
-def create_ranking():
-    ranking = ranker.Ranker.create([0, 1000], 100)
-    return ranking
 
 
 def create_filled_ranking():
-    ranking = create_ranking()
+    ranking = ranker.Ranker.get_or_create('default', [0, 1000], 100)
     ranking.set_score('user1', [90])
     ranking.set_score('user1', [100])
     ranking.set_score('user2', [130])
@@ -31,12 +25,7 @@ class BasicTest(unittest.TestCase):
         pass
 
     def test_create(self):
-        r = ranker.Ranker.create([0, 10000], 100)
-        app = model.App(
-            name="test",
-            ranker=r.rootkey,
-        )
-        app.put()
+        ranker.Ranker.create('default', [0, 10000], 100)
 
     def test_set_score(self):
         create_filled_ranking()

@@ -1,14 +1,9 @@
 from google.appengine.ext import ndb
 
 
-class App(ndb.Model):
-    name = ndb.StringProperty(indexed=False)
-    ranker = ndb.KeyProperty(indexed=False)
-
-
 class Ranker(ndb.Model):
     """
-
+        key = ranking_name ( unique string )
     """
     score_range = ndb.IntegerProperty(indexed=False, repeated=True)
     branching_factor = ndb.IntegerProperty(indexed=False)

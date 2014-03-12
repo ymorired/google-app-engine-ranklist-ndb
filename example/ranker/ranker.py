@@ -128,17 +128,16 @@ class Ranker(object):
 
     """
 
-    def __init__(self, rootkey):
+    def __init__(self, root):
         """Pulls a ranker out of the datastore, given the key of the root node.
 
         Args:
           rootkey: The datastore key of the ranker.
         """
         # Get the root from the datastore:
-        assert rootkey.kind() == "Ranker"
-        root = rootkey.get()
+        assert root.key.kind() == "Ranker"
         # Initialize some class variables:
-        self.rootkey = rootkey
+        self.rootkey = root.key
         self.score_range = root.score_range
         self.branching_factor = root.branching_factor
         # Sanity checking:
@@ -149,7 +148,7 @@ class Ranker(object):
         assert self.branching_factor > 1
 
     @classmethod
-    def create(cls, score_range, branching_factor):
+    def create(cls, ranking_name, score_range, branching_factor):
         """Constructs a new Ranker and returns it.
 
         Args:
@@ -166,12 +165,23 @@ class Ranker(object):
         """
         # Put the root in the datastore:
         root = model.Ranker(
+            key=ndb.Key(model.Ranker, ranking_name),
             score_range=score_range,
             branching_factor=branching_factor,
         )
-        rootkey = root.put()
-        myrank = Ranker(rootkey)
+        root.put()
+        myrank = Ranker(root)
         return myrank
+
+    @classmethod
+    def get_or_create(cls, ranking_name, score_range, branching_factor):
+
+        rootkey = ndb.Key(model.Ranker, ranking_name)
+        ranker_obj = rootkey.get()
+        if ranker_obj is not None:
+            return Ranker(ranker_obj)
+
+        return cls.create(ranking_name, score_range, branching_factor)
 
     def _find_node_ids(self, score):
         """Finds the nodes along the path from the root to a certain score.
