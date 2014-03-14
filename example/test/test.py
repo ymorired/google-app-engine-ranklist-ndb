@@ -70,5 +70,14 @@ class BasicTest(unittest.TestCase):
 
         self.assertEqual(ranking.total_ranked_player_num(), 5)
 
+    def test_namespace(self):
+        ranking1 = create_filled_ranking()
+        ranking2 = ranker.Ranker.get_or_create('default2', [0, 1000], 100)
+
+        self.assertEqual(ranking2.find_rank([50]), 0)
+        self.assertEqual(ranking1.find_rank([50]), 5)
+
+
+
 if __name__ == '__main__':
     unittest.main()

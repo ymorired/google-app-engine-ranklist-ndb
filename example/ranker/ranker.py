@@ -163,6 +163,7 @@ class Ranker(object):
         Returns:
           A new Ranker.
         """
+        assert isinstance(ranking_name, str)
         # Put the root in the datastore:
         root = model.Ranker(
             key=ndb.Key(model.Ranker, ranking_name),
