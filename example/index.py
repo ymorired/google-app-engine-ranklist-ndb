@@ -13,9 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
-sys.path.insert(0, '..')
-
 import os
 
 from google.appengine.ext import webapp
@@ -71,15 +68,16 @@ class QueryRankPage(webapp.RequestHandler):
         rank = int(self.request.get("rank"))
         if rank >= r.total_ranked_player_num():
             show_error_page(self, "There aren't %d ranked people!" % (rank + 1))
-        else:
-            (score, rank_at_tie) = r.find_score(rank)
-            template_values = {"score": score[0], "rank": rank}
-            if rank_at_tie < rank:
-                template_values["tied"] = True
-                template_values["rank_at_tie"] = rank_at_tie
+            return
 
-            path = os.path.join(os.path.dirname(__file__), 'rank.html')
-            self.response.out.write(template.render(path, template_values))
+        (score, rank_at_tie) = r.find_score(rank)
+        template_values = {"score": score[0], "rank": rank}
+        if rank_at_tie < rank:
+            template_values["tied"] = True
+            template_values["rank_at_tie"] = rank_at_tie
+
+        path = os.path.join(os.path.dirname(__file__), 'rank.html')
+        self.response.out.write(template.render(path, template_values))
 
 
 class QueryScorePage(webapp.RequestHandler):
