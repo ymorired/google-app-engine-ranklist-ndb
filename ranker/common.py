@@ -21,11 +21,13 @@ from google.appengine.api import datastore
 
 
 def transactional(operation):
-  """Decorator that wraps a method in a datastore transaction.
+    """Decorator that wraps a method in a datastore transaction.
 
-  The method will be called through datastore.RunInTransaction, making the
-  operation atomic.
-  """
-  def transactional_operation(*args, **kwargs):
-    return datastore.RunInTransaction(operation, *args, **kwargs)
-  return transactional_operation
+    The method will be called through datastore.RunInTransaction, making the
+    operation atomic.
+    """
+
+    def transactional_operation(*args, **kwargs):
+        return datastore.RunInTransaction(operation, *args, **kwargs)
+
+    return transactional_operation
